@@ -1,0 +1,39 @@
+---
+- name: Compress and clean messages logs
+  hosts: all
+  become: yes
+  vars:
+    today: "{{ lookup('pipe','date +%Y%m%d') }}"
+  tasks:
+    - name: Find the messages logs
+      find:
+        paths: /var/log
+        patterns: "messages*"
+        file_type: file
+      register: message_file
+
+    - name: Compress rotated logs (skip gz, skip active messages)
+      command: >
+        tar --warning=no-file-changed --ignore-failed-read
+        -czf /var/log/{{ (item.path | basename) }}-{{ today }}.tar.gz {{ item.path }}
+      loop: "{{ message_file.files }}"
+      when: not item.path.endswith('.gz') and (item.path | basename) != 'messages'
+      register: rotated_results
+
+    - name: Delete rotated logs after compression
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ message_file.files }}"
+      when: not item.path.endswith('.gz') and (item.path | basename) != 'messages'
+
+    - name: Compress active messages log
+      command: >
+        tar --warning=no-file-changed --ignore-failed-read
+        -czf /var/log/messages-{{ today }}.tar.gz /var/log/messages
+      register: active_result
+
+    - name: Truncate active messages log
+      command: truncate -s 0 /var/log/messages
+
+

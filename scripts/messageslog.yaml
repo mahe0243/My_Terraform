@@ -1,0 +1,57 @@
+---
+- name: Compress and clean messages logs
+  hosts: all
+  become: yes
+  tasks:
+    - name: Find the messages logs
+      find:
+        paths: /var/log
+        patterns: "messages*"
+        file_type: file
+      register: message_file
+
+    - set_fact:
+        log_paths: "{{ message_file.files | map(attribute='path') | list }}"
+
+    - debug:
+        var: log_paths
+
+    - name: Create tar.gz and delete original file (skip .gz and active messages file)
+      shell: |
+        base=$(basename "{{ item.path }}")
+
+        # Skip gzipped files
+        if [[ "$base" == *.gz ]]; then
+          echo "Skipping already compressed file: $base"
+          exit 0
+        fi
+
+        # Skip the active /var/log/messages file
+        if [[ "$base" == "messages" ]]; then
+          echo "Skipping active messages file: $base"
+          exit 0
+        fi
+        # Add today's date in YYYYMMDD format
+        today=$(date +%Y%m%d)
+
+        # Preserve full filename and append .tar.gz with date
+        name="${base}.${today}.tar.gz"
+
+        tar --warning=no-file-changed --ignore-failed-read \
+          -czf /var/log/${name} "{{ item.path }}"
+
+        # Delete original file immediately
+        rm -f "{{ item.path }}"
+      args:
+        executable: /bin/bash
+      loop: "{{ message_file.files }}"
+      register: compressed_results
+
+    - name: Show newly created tar.gz files
+      debug:
+        msg: "{{ compressed_results.results | map(attribute='stdout') | list }}"
+
+    - name: Truncate active messages log
+      command: truncate -s 0 /var/log/messages
+      ignore_errors: yes
+

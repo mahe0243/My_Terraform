@@ -1,0 +1,24 @@
+---
+- name: Manage sudoers entries safely
+  hosts: all
+  become: true
+  tasks:
+    - name: Backup sudoers file
+      ansible.builtin.copy:
+        src: /etc/sudoers
+        dest: /tmp/sudoers.bak
+        owner: root
+        group: root
+        mode: '0440'
+
+    - name: Add sudoers line after Defaults
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        #line: 'test23 ALL=(ALL) NOPASSWD: /bin/sh - amp'
+        #regexp: '^test23\s+ALL=\(ALL\)\s+NOPASSWD:\s+/bin/sh\s+-\s+amp$'
+        line: 'test23 ALL=(ALL) NOPASSWD: /bin/sh - cassandra'
+        insertbefore: '^master'
+        #state: absent
+        #replace: ''
+        validate: '/usr/sbin/visudo -cf %s'
+        backup: yes

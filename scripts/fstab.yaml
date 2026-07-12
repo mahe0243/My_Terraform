@@ -1,0 +1,32 @@
+---
+- name: Manage sudoers entries safely
+  hosts: all
+  become: true
+  tasks:
+    - name: Backup sudoers file
+      ansible.builtin.copy:
+        src: /etc/fstab
+        dest: /tmp/fstab.bak
+        owner: root
+        group: root
+        mode: '0440'
+
+    - name: Add sudoers line after Defaults
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^/dev/sdg\s+/data01\s+xfs\s+defaults\s+0\s+0$'
+        state: absent
+        backup: yes
+
+    - name: Validate fstab entries
+      ansible.builtin.command: mount -a
+      register: mount_result
+      failed_when: mount_result.rc != 0
+
+    - name: Get df -Th 
+      ansible.builtin.command: df -Th 
+      register: df_Th
+
+    - name: Show df -Th filesystem info
+      ansible.builtin.debug:
+        var: df_Th.stdout_lines

@@ -1,0 +1,16 @@
+---
+- name: Add PBIS
+  hosts: all
+  become: yes
+  tasks:
+    - name: Manage SEC sudoers file
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/sec_groups
+        content: |
+          %SEC-Global-UnixAdmins ALL=(ALL) ALL
+          %sec-global-unix-discovery ALL=(ALL) ALL
+        owner: root
+        group: root
+        mode: '0440'
+        validate: '/usr/sbin/visudo -cf %s'
+

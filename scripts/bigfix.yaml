@@ -1,0 +1,46 @@
+---
+- name: Manage Bigfix 
+  hosts: all
+  become: yes
+  tasks:
+    - name: Download BigFix Agent RPM
+      get_url:
+              url: http://software.bigfix.com/download/bes/82/BESAgent-8.2.1372.0-rhe4.x86_64.rpm
+              dest: /tmp/BESAgent.rpm
+
+    - name: Install BigFix Agent
+      command: rpm -ivh /tmp/BESAgent.rpm
+      args:
+        warn: false
+      #yum:
+      #  name: /tmp/BESAgent.rpm
+      #  state: present
+
+    - name: Copy masthead file
+      copy:
+        src: /tmp/actionsite.afxm
+        dest: /etc/opt/BESClient/actionsite.afxm
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Start BESClient
+      service:
+        name: besclient
+        state: started
+        enabled: yes
+
+    - name: Verify BESClient process is running
+      shell: pgrep -x BESClient
+      register: besclient_pid
+      changed_when: false
+      failed_when: besclient_pid.rc != 0
+
+    - name: Tail BESClient log for confirmation
+      shell: tail -n 20 /var/opt/BESClient/__BESData/__Global/Logs/$(date +%Y%m%d).log
+      register: besclient_log
+      changed_when: false
+
+    - name: Show BESClient log output
+      debug:
+        var: besclient_log.stdout

@@ -1,0 +1,14 @@
+---
+- name: Add sudoers group entries
+  hosts: all
+  become: true
+  tasks:
+    - name: Insert sudoers block for SEC groups
+      ansible.builtin.blockinfile:
+        path: /etc/sudoers
+        block: |
+          %SEC-Global-UnixAdmins ALL=(ALL) ALL
+          %sec-global-unix-discovery ALL=(ALL) ALL
+        marker: "# {mark} ANSIBLE MANAGED SEC GROUPS"
+        validate: '/usr/sbin/visudo -cf %s'
+        backup: yes
