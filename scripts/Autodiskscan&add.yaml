@@ -1,0 +1,59 @@
+	- name: Manage data disk (add or expand)
+  hosts: mailservers
+  become: yes
+  tasks:
+    - name: Detect unmounted block devices
+      command: lsblk -nr -o NAME,MOUNTPOINT
+      register: lsblk_output
+
+    - name: Set fact for new device
+      set_fact:
+        new_device: "/dev/{{ item.split()[0] }}"
+      loop: "{{ lsblk_output.stdout_lines }}"
+      when: item.split()|length == 1 or item.split()[1] == ""
+
+    - name: Ensure filesystem exists
+      filesystem:
+        fstype: ext4
+        dev: "{{ new_device }}"
+      ignore_errors: yes
+
+    - name: Create mount point
+      file:
+        path: /data
+        state: directory
+
+    - name: Mount disk
+      mount:
+        path: /data
+        src: "{{ new_device }}"
+        fstype: ext4
+        opts: defaults,nofail
+        state: mounted
+
+    - name: Persist mount in fstab
+      mount:
+        path: /data
+        src: "{{ new_device }}"
+        fstype: ext4
+        opts: defaults,nofail
+        state: present
+
+    - name: Resize partition if needed
+      command: growpart "{{ new_device | regex_replace('[0-9]+$', '') }}" 1
+      register: growpart_result
+      failed_when: false
+      changed_when: "'CHANGED' in growpart_result.stdout"
+
+    - name: Detect filesystem type
+      command: blkid -o value -s TYPE "{{ new_device }}1"
+      register: fs_type
+      failed_when: false
+
+    - name: Resize ext4 filesystem
+      command: resize2fs "{{ new_device }}1"
+      when: fs_type.stdout == "ext4"
+
+    - name: Resize XFS filesystem
+      command: xfs_growfs /data
+      when: fs_type.stdout == "xfs"
