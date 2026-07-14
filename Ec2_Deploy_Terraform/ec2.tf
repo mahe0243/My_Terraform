@@ -15,6 +15,7 @@ resource "aws_instance" "nginx" {
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.k8_public_subnet.id
   vpc_security_group_ids = [aws_security_group.k8_nginx_sg.id]
+  key_name      = "Mykey"  # existing key pair name
 
   user_data = <<-EOF
               #!/bin/bash
