@@ -1,0 +1,12 @@
+---
+- name: Ensure service restarts after reboot
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Add @reboot cron entry for nginx
+      ansible.builtin.cron:
+        name: "Restart nginx after reboot"
+        special_time: reboot
+        job: "/usr/bin/systemctl restart nginx"
+
