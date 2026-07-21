@@ -1,0 +1,70 @@
+SERVER SIDE CONFIGURATION:
+------------------------------
+
+Step 1: Configure Sendmail:
+==============================
+Edit-->/etc/mail/sendmail.mc and following:
+
+define(`SMART_HOST', `email-smtp.us-east-1.amazonaws.com')dnl
+define(`RELAY_MAILER_ARGS', `TCP $h 587')dnl
+define(`ESMTP_MAILER_ARGS', `TCP $h 587')dnl
+FEATURE(`authinfo', `hash -o /etc/mail/authinfo.db')dnl
+
+MASQUERADE_AS(`mparellak8s.xyz')dnl
+FEATURE(masquerade_envelope)dnl
+FEATURE(masquerade_entire_domain)dnl
+FEATURE(genericstable)dnl
+GENERICS_DOMAIN_FILE(`/etc/mail/generics-domains')dnl
+
+MAILER(smtp)dnl
+MAILER(procmail)dnl
+
+
+Step 2: Create supporting files:
+=================================
+Edit -/etc/mail/generics-domains  and must have following
+
+client1.1.local
+localhost
+localhost.localdomain
+
+Open --> /etc/mail/genericstable and below line
+root    noreply@mparellak8s.xyz
+
+run -> makemap hash /etc/mail/genericstable < /etc/mail/genericstable
+
+
+Step 3: Authinfo for SES:
+============================
+
+Create /etc/mail/authinfo -> and add below
+
+AuthInfo:email-smtp.us-east-1.amazonaws.com "U:root" "I:YOUR_SES_SMTP_USERNAME" "P:YOUR_SES_SMTP_PASSWORD" "M:PLAIN"
+
+and run following commands:
+makemap hash /etc/mail/authinfo < /etc/mail/authinfo
+chmod 600 /etc/mail/authinfo /etc/mail/authinfo.db
+
+Step 4: Rebuild and restart.
+
+cd /etc/mail
+make
+systemctl restart sendmail
+
+
+Step 5: Test:
+================
+sendmail -f noreply@mparellak8s.xyz -v maheshparella243@gmail.com <<EOF
+Subject: SES Test
+From: noreply@mparellak8s.xyz
+
+Hello Mahesh, SES test mail.
+EOF
+
+
+
+
+
+
+
+
