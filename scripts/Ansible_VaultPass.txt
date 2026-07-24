@@ -1,0 +1,18 @@
+[all]
+client1.1.local
+client2
+
+[all:vars]
+ansible_user=ansibleuser
+ansible_password=welcome1
+ansible_become=true
+ansible_become_method=sudo
+ansible_become_password=welcome1
+
+Inventory_file: /etc/ansible/hosts_passwd
+
+To Encrypt:
+ansible-vault encrypt /etc/ansible/hosts_passwd
+
+To View/Decrypt
+ansible-vault view or edit /etc/ansible/hosts_passwd
