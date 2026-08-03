@@ -1,0 +1,62 @@
+Kubernetes: -Cluster:
+
+Worker Node -Phy or Virtual (Host Application as Containers)
+Master Node -> Manage, Plan, Schedule, Monitor Nodes
+
+MASTER_NODE:
+etds -DB store in key-value manner about cluster info
+Kube-Scheduler -> Scheduling application or container on nodes
+Kube-apiserver ->
+Controller manager ->Resp -Node controller or replication takes care
+Api-server -> Responsible for all orchestrating all operations with in the cluster
+ 
+WORKER_NODE:
+Kubelet -Agent its listens instructions from the kube-api server to manages the container - once info received from kube-api server it will creates the pods on node and instruct the container runtime engine to deploy the application image.
+the scheduler continue to monitor the api-server 
+instead of kubectl command we can invoke apis directly by sending a post requests directly 
+
+Ex: Creating a Pod:
+-------------------
+api server creates a pod object first without signing into the node updates the information in etcd cluster and update the user that pod is been created.
+the scheduler continues to monitor the api server and realizes there is new pod with no node is assigned 
+scheduler ident right node to place new pod on and comm back to kube server
+api-s update info in the etcd clisrt
+api-s then pass the information kubelet in appropriate worker node.
+the kubelet - then creates pod on node and instructs the CRI to deploy the application image
+once dine, kubelet update the status back to the api-ser
+api-ser then update data in etcd cluster, a similar pattern followed every time a change is requested.
+
+Kube-apiS ->Authenticate user-> validate Request->Retrieve data ->update in ETCD-> other components scheduler & kubectl uses the api-server to perform the updates in the cluster in that respective area.
+ 
+
+
+Kube-Proxy- it enabling the communication b/w services with in the cluster.
+
+Container-D
+ctl -command line utility that comes with containerD which is used debugging purpose only and has limited futures
+nodectl - Used for general purpose
+
+Kubenets- CRI -Container Runtime interface (CRI)
+Crictl - its kubernets community -Debugging 
+
+Etcd -datastore -Port 2379
+Store the information about the clusters such as (Nodes, Pods, Config, secretes, accounts, Roles, Bindings and others.
+any changes you made in cluster like adding the nodes, pods, replica sets, it will update in etcd server
+	
+2 ways of installing the Kubernetes cluster:
+1. using kubeadm
+2. from scratch
+
+
+Kubernets-Service: 
+
+NodePort -Service listen on port on node and forward the request to the pods.
+Cluster IP
+Load balancer
+
+
+
+
+
+
+
