@@ -11,10 +11,11 @@ data "aws_ami" "amazon_linux_2" {
 
 resource "aws_instance" "nginx" {
   ami           = data.aws_ami.amazon_linux_2.id
+  count         = 2
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.k8_public_subnet.id
   vpc_security_group_ids = [aws_security_group.k8_nginx_sg.id]
-
+  key_name      = "Mykey"  # existing key pair name
   user_data = <<-EOF
               #!/bin/bash
               yum update -y
@@ -24,5 +25,10 @@ resource "aws_instance" "nginx" {
               echo "<h1>Hello from Nginx on Terraform EC2!</h1>" > /usr/share/nginx/html/index.html
               EOF
 
-  tags = { Name = "Terraform-Nginx" }
+
+  tags = {
+    Name = "Terraform-Nginx-${count.index + 1}"
+  }
 }
+#  tags = { Name = "Terraform-Nginx" }
+#}
