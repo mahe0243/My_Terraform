@@ -1,20 +1,44 @@
 ---
-- name: Manage Bigfix 
+- name: Manage BigFix
   hosts: all
   become: yes
+
   tasks:
+
+    - name: Stop BESClient service
+      shell: service besclient stop
+      ignore_errors: yes
+
+    - name: Get installed BESAgent package
+      shell: rpm -qa | grep -i BESAgent
+      register: besagent_pkg
+      changed_when: false
+      failed_when: false
+
+    - name: Uninstall existing BESAgent package
+      shell: rpm -e {{ besagent_pkg.stdout }}
+      when: besagent_pkg.stdout != ""
+
+    - name: Remove old BESClient directory
+      file:
+        path: /etc/opt/BESClient
+        state: absent
+
     - name: Download BigFix Agent RPM
       get_url:
-              url: http://software.bigfix.com/download/bes/82/BESAgent-8.2.1372.0-rhe4.x86_64.rpm
-              dest: /tmp/BESAgent.rpm
+        url: https://software.bigfix.com/download/bes/110/BESAgent-11.0.5.204-rhe7.x86_64.rpm
+        dest: /tmp/BESAgent.rpm
 
     - name: Install BigFix Agent
       command: rpm -ivh /tmp/BESAgent.rpm
-      args:
-        warn: false
-      #yum:
-      #  name: /tmp/BESAgent.rpm
-      #  state: present
+
+    - name: Create /etc/opt/BESClient directory
+      file:
+        path: /etc/opt/BESClient
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
 
     - name: Copy masthead file
       copy:
@@ -22,9 +46,9 @@
         dest: /etc/opt/BESClient/actionsite.afxm
         owner: root
         group: root
-        mode: '0644'
+        mode: "0644"
 
-    - name: Start BESClient
+    - name: Start BESClient service
       service:
         name: besclient
         state: started
@@ -36,10 +60,15 @@
       changed_when: false
       failed_when: besclient_pid.rc != 0
 
+    - name: Display BESClient PID
+      debug:
+        var: besclient_pid.stdout
+
     - name: Tail BESClient log for confirmation
       shell: tail -n 20 /var/opt/BESClient/__BESData/__Global/Logs/$(date +%Y%m%d).log
       register: besclient_log
       changed_when: false
+      failed_when: false
 
     - name: Show BESClient log output
       debug:
