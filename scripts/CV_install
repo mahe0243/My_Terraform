@@ -1,70 +1,76 @@
 ---
-- name: Install Commvault Agent 11.34 on Linux
-  hosts: commvault_clients
+- name: Install Commvault Agent
+  hosts: all
   become: yes
 
   vars:
-    cv_package_src: "/root/Unix.tar"          # Path on Ansible control node
-    cv_package_dest: "/root/Unix.tar"         # Path on target node
-    cv_response_dest: "/root/cv_response.txt" # Silent install response file
-    cv_install_log: "/var/log/cvpkgadd_install.log"
+    cv_package_src: /root/Unix.tar
+    cv_package_dest: /root/Unix.tar
+    cv_extract_dir: /root/commvault
 
-    # Common defaults (can be overridden per host in inventory)
-    commserve_hostname: "commserve01.example.com"
-    install_dir: "/opt"
-    auth_code: "XYZ123456789"
-    selected_packages: "FileSystem,MediaAgent"
-    firewall_config: "No"
-    storage_policy: "DefaultPolicy"
-    log_dir: "/var/log"
+    commserve_hostname: hostname of CV
+    auth_code: your_auth_code
+    install_dir: /opt
 
   tasks:
-    - name: Ensure destination directory exists
-      file:
-        path: "{{ cv_package_dest | dirname }}"
-        state: directory
-        mode: '0755'
 
-    - name: Copy Commvault package to target
+    - name: Create extraction directory
+      file:
+        path: "{{ cv_extract_dir }}"
+        state: directory
+
+    - name: Copy media
       copy:
         src: "{{ cv_package_src }}"
         dest: "{{ cv_package_dest }}"
-        mode: '0755'
 
-    - name: Generate silent response file
-      copy:
-        dest: "{{ cv_response_dest }}"
-        content: |
-          CommServeHostName={{ commserve_hostname }}
-          ClientName={{ inventory_hostname }}
-          ClientHostname={{ ansible_host }}
-          InstallDirectory={{ install_dir }}
-          AuthenticationCode={{ auth_code }}
-          SelectedPackages={{ selected_packages }}
-          FirewallConfig={{ firewall_config }}
-          StoragePolicy={{ storage_policy }}
-          LogDirectory={{ log_dir }}
-        mode: '0644'
+    - name: Extract media
+      unarchive:
+        src: "{{ cv_package_dest }}"
+        dest: "{{ cv_extract_dir }}"
+        remote_src: true
 
-    - name: Run Commvault silent installer
+    - name: Find cvpkgadd
+      find:
+        paths: "{{ cv_extract_dir }}"
+        patterns: cvpkgadd
+        recurse: yes
+      register: cvpkgadd_file
+
+    - name: Create silent XML
+      template:
+        src: cv_silent.xml.j2
+        dest: /root/cv_silent.xml
+        mode: "0644"
+
+    - name: Validate XML
+      command: xmllint --noout /root/cv_silent.xml
+      register: xml_check
+      changed_when: false
+
+    - name: Run Installer
       command: >
-        {{ cv_package_dest }}/cvpkgadd
+        {{ cvpkgadd_file.files[0].path }}
         -silent
-        -playbook {{ cv_response_dest }}
-        -log {{ cv_install_log }}
-      args:
-        chdir: "{{ cv_package_dest | dirname }}"
+        -p /root/cv_silent.xml
+      register: cv_install
+      ignore_errors: true
 
-    - name: Enable and start Commvault services
-      systemd:
-        name: GxCVD
-        state: started
-        enabled: yes
+    - name: Show installer result
+      debug:
+        var: cv_install
 
-    - name: Check Commvault service status
-      command: systemctl status GxCVD
-      register: cv_status
-      ignore_errors: yes
+    - name: Fail if installer failed
+      fail:
+        msg: "Commvault installation failed"
+      when: cv_install.rc != 0
 
-    - debug:
-        msg: "Commvault service status on {{ inventory_hostname }}: {{ cv_status.stdout }}"
+    - name: Check Simpana status
+      shell: commvault status
+      register: commvault_status
+      ignore_errors: true
+      changed_when: false
+
+    - name: Display Simpana status
+      debug:
+        var: commvault_status.stdout_lines
