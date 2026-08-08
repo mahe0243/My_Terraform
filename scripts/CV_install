@@ -1,0 +1,70 @@
+---
+- name: Install Commvault Agent 11.34 on Linux
+  hosts: commvault_clients
+  become: yes
+
+  vars:
+    cv_package_src: "/root/Unix.tar"          # Path on Ansible control node
+    cv_package_dest: "/root/Unix.tar"         # Path on target node
+    cv_response_dest: "/root/cv_response.txt" # Silent install response file
+    cv_install_log: "/var/log/cvpkgadd_install.log"
+
+    # Common defaults (can be overridden per host in inventory)
+    commserve_hostname: "commserve01.example.com"
+    install_dir: "/opt"
+    auth_code: "XYZ123456789"
+    selected_packages: "FileSystem,MediaAgent"
+    firewall_config: "No"
+    storage_policy: "DefaultPolicy"
+    log_dir: "/var/log"
+
+  tasks:
+    - name: Ensure destination directory exists
+      file:
+        path: "{{ cv_package_dest | dirname }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy Commvault package to target
+      copy:
+        src: "{{ cv_package_src }}"
+        dest: "{{ cv_package_dest }}"
+        mode: '0755'
+
+    - name: Generate silent response file
+      copy:
+        dest: "{{ cv_response_dest }}"
+        content: |
+          CommServeHostName={{ commserve_hostname }}
+          ClientName={{ inventory_hostname }}
+          ClientHostname={{ ansible_host }}
+          InstallDirectory={{ install_dir }}
+          AuthenticationCode={{ auth_code }}
+          SelectedPackages={{ selected_packages }}
+          FirewallConfig={{ firewall_config }}
+          StoragePolicy={{ storage_policy }}
+          LogDirectory={{ log_dir }}
+        mode: '0644'
+
+    - name: Run Commvault silent installer
+      command: >
+        {{ cv_package_dest }}/cvpkgadd
+        -silent
+        -playbook {{ cv_response_dest }}
+        -log {{ cv_install_log }}
+      args:
+        chdir: "{{ cv_package_dest | dirname }}"
+
+    - name: Enable and start Commvault services
+      systemd:
+        name: GxCVD
+        state: started
+        enabled: yes
+
+    - name: Check Commvault service status
+      command: systemctl status GxCVD
+      register: cv_status
+      ignore_errors: yes
+
+    - debug:
+        msg: "Commvault service status on {{ inventory_hostname }}: {{ cv_status.stdout }}"
