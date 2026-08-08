@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<CVInstallManager_ClientSetup Focus="Instance001" subscriptionID="">
+
+  <ClientAuthentication>
+    <userAccountToLogin userName="" password="" domainName=""/>
+  </ClientAuthentication>
+
+  <CommServeInfo networkGateway="{{ commserve_hostname }}" endPoint="">
+    <CommserveHostInfo clientName="CommServe"
+                       hostName="{{ commserve_hostname }}"/>
+  </CommServeInfo>
+
+  <clientComposition overWriteClientHostName="1">
+
+    <clientInfo>
+      <client installDirectory="{{ install_dir }}"
+              cvdPort=""
+              clientCertificate="">
+
+        <clientEntity
+          clientName="{{ inventory_hostname }}"
+          displayName="{{ inventory_hostname }}"
+          hostName="{{ inventory_hostname }}"/>
+
+        <jobResulsDir path="/var/log"/>
+
+      </client>
+
+      <clientProps logFilesLocation="/var/log"/>
+      <clientGroups clientGroupName=""/>
+    </clientInfo>
+
+    <components>
+
+      <componentInfo ComponentId="1002"
+                     ComponentName="File System Core"
+                     consumeLicense="1"/>
+
+      <fileSystem>
+        <selectedSubclientPolicy
+          subclientPolicyId=""
+          subclientPolicyName=""/>
+      </fileSystem>
+
+      <componentInfo ComponentId="1101"
+                     ComponentName="File System"
+                     consumeLicense="1"/>
+
+      <commonInfo globalFilters=""
+                  useExistingStoragePolicy="">
+        <subclientPlanToUse planName=""/>
+        <storagePolicyToUse storagePolicyId=""
+                            storagePolicyName=""/>
+      </commonInfo>
+
+    </components>
+
+  </clientComposition>
+
+  <organizationProperties authCode="{{ auth_code }}"/>
+
+</CVInstallManager_ClientSetup>
