@@ -1,0 +1,101 @@
+---
+- name: Install KDE Plasma and Configure VNC for siebelcrm
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    user_name: siebelcrm
+    vnc_display: ":4"
+    vnc_password: welcome1
+
+  tasks:
+
+    - name: Install Oracle EPEL repository
+      dnf:
+        name: oracle-epel-release-el9
+        state: present
+
+    - name: Enable CodeReady Builder repository
+      command: dnf config-manager --set-enabled ol9_codeready_builder
+      register: repo_enable
+      changed_when: "'enabled' in repo_enable.stdout or repo_enable.rc == 0"
+
+    - name: Clean DNF cache
+      command: dnf clean all
+
+    - name: Rebuild DNF cache
+      command: dnf makecache
+
+    - name: Install KDE Plasma Workspaces group
+      command: dnf groupinstall "KDE Plasma Workspaces" -y
+      register: kde_group
+      changed_when: kde_group.rc == 0
+
+    - name: Install KDE packages
+      dnf:
+        name:
+          - plasma-workspace
+          - plasma-desktop
+          - kwin
+          - dbus-x11
+          - libdrm
+        state: present
+
+    - name: Verify user exists
+      getent:
+        database: passwd
+        key: "{{ user_name }}"
+
+    - name: Create .vnc directory
+      file:
+        path: "/home/{{ user_name }}/.vnc"
+        state: directory
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
+        mode: '0700'
+
+    - name: Create VNC password file
+      shell: |
+        echo "{{ vnc_password }}" | vncpasswd -f > /home/{{ user_name }}/.vnc/passwd
+      args:
+        creates: "/home/{{ user_name }}/.vnc/passwd"
+
+    - name: Set VNC password file permissions
+      file:
+        path: "/home/{{ user_name }}/.vnc/passwd"
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
+        mode: '0600'
+
+    - name: Create xstartup file
+      copy:
+        dest: "/home/{{ user_name }}/.vnc/xstartup"
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
+        mode: '0700'
+        content: |
+          #!/bin/sh
+
+          unset SESSION_MANAGER
+          unset DBUS_SESSION_BUS_ADDRESS
+
+          export XDG_SESSION_TYPE=x11
+          export XDG_CURRENT_DESKTOP=KDE
+          export DESKTOP_SESSION=plasma
+
+          exec dbus-run-session /usr/bin/plasma_session
+
+    - name: Kill existing VNC session
+      become_user: "{{ user_name }}"
+      command: "vncserver -kill {{ vnc_display }}"
+      ignore_errors: yes
+
+    - name: Start VNC session
+      become_user: "{{ user_name }}"
+      command: "vncserver {{ vnc_display }} -geometry 1920x1080 -depth 24"
+      register: vnc_start
+
+    - name: Display VNC startup result
+      debug:
+        var: vnc_start.stdout_lines
