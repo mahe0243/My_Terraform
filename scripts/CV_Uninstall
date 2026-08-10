@@ -1,0 +1,38 @@
+---
+- name: Uninstall Commvault
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+    - name: Display target host
+      debug:
+        msg: "Starting Commvault uninstallation on {{ inventory_hostname }}"
+
+    - name: Check if Commvault is installed
+      stat:
+        path: /opt/commvault/cvpkgrm
+      register: cvpkgrm
+
+    - name: Uninstall Commvault Instance001
+      expect:
+        command: "/bin/bash -c 'cd /tmp && /opt/commvault/cvpkgrm -i Instance001'"
+        timeout: 3600
+        responses:
+          '(?i).*select.*': "\x1b[B\x1b[B\r"
+          '(?i).*proceed.*': "y\r"
+          '(?i).*are you sure.*': "y\r"
+      register: uninstall_result
+      when: cvpkgrm.stat.exists
+      failed_when: false
+
+    - name: Display result
+      debug:
+        msg:
+          - "Host: {{ inventory_hostname }}"
+          - "RC: {{ uninstall_result.rc | default('N/A') }}"
+          - "{{ uninstall_result.stdout | default('No output captured') }}"
+      when:
+        - cvpkgrm.stat.exists
+        - uninstall_result is defined
