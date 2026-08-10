@@ -1,0 +1,47 @@
+#!/bin/bash
+sudo dnf install -y oracle-epel-release-el9
+sudo dnf config-manager --set-enabled ol9_codeready_builder
+sudo dnf clean all
+sudo dnf makecache 
+sudo dnf groupinstall "KDE Plasma Workspaces" -y
+sudo dnf install -y plasma-workspace plasma-desktop kwin dbus-x11 libdrm
+ 
+USER_NAME="your username"
+VNC_DISPLAY=":4"
+VNC_PASSWORD="set vnc password"
+ 
+# Verify user exists
+id "${USER_NAME}" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "User ${USER_NAME} does not exist."
+    exit 1
+fi
+echo "Creating VNC configuration for ${USER_NAME}..."
+# Create .vnc directory and password file
+su - "${USER_NAME}" -c "
+mkdir -p /home/siebelcrm/.vnc
+echo "$VNC_PASSWORD" | vncpasswd -f > /home/siebelcrm/.vnc/passwd
+cat > /home/siebelcrm/.vnc/xstartup <<'EOF'
+#!/bin/sh
+ 
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+ 
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=KDE
+export DESKTOP_SESSION=plasma
+ 
+exec dbus-run-session /usr/bin/plasma_session
+EOF
+"
+chmod 600  /home/siebelcrm/.vnc/passwd
+ 
+chmod 600  /home/siebelcrm/.vnc/xstartup
+chmod +x  /home/siebelcrm/.vnc/xstartup
+ 
+# Killing active session
+su - "${USER_NAME}" -c "vncserver -kill :4"
+ 
+ 
+# Start VNC session
+su - "${USER_NAME}" -c "vncserver ${VNC_DISPLAY} -geometry 1920x1080 -depth 24"
