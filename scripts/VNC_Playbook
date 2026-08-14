@@ -5,8 +5,8 @@
   gather_facts: yes
 
   vars:
-    user_name: siebelcrm
-    vnc_display: ":4"
+    user_name: username
+    vnc_display: ":1"
     vnc_password: welcome3
 
   tasks:
