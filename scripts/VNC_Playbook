@@ -1,4 +1,3 @@
-
 ---
 - name: Install KDE Plasma and Configure VNC
   hosts: all
@@ -6,9 +5,9 @@
   gather_facts: yes
 
   vars:
-    user_name: username
-    vnc_display: ":1"
-    vnc_password: welcome1
+    user_name: siebelcrm
+    vnc_display: ":4"
+    vnc_password: welcome3
 
   tasks:
 
