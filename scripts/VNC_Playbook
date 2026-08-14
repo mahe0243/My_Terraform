@@ -1,12 +1,13 @@
+
 ---
-- name: Install KDE Plasma and Configure VNC for siebelcrm
+- name: Install KDE Plasma and Configure VNC
   hosts: all
   become: yes
   gather_facts: yes
 
   vars:
-    user_name: siebelcrm
-    vnc_display: ":4"
+    user_name: username
+    vnc_display: ":1"
     vnc_password: welcome1
 
   tasks:
@@ -18,62 +19,53 @@
 
     - name: Enable CodeReady Builder repository
       command: dnf config-manager --set-enabled ol9_codeready_builder
-      register: repo_enable
-      changed_when: "'enabled' in repo_enable.stdout or repo_enable.rc == 0"
+      failed_when: false
+      changed_when: false
 
-    - name: Clean DNF cache
-      command: dnf clean all
+    - name: Install KDE Plasma Workspaces
+      shell: dnf groupinstall "KDE Plasma Workspaces" -y
+      changed_when: false
 
-    - name: Rebuild DNF cache
-      command: dnf makecache
-
-    - name: Install KDE Plasma Workspaces group
-      command: dnf groupinstall "KDE Plasma Workspaces" -y
-      register: kde_group
-      changed_when: kde_group.rc == 0
-
-    - name: Install KDE packages
+    - name: Install required packages
       dnf:
         name:
+          - tigervnc-server
           - plasma-workspace
           - plasma-desktop
           - kwin
           - dbus-x11
-          - libdrm
+          - xorg-x11-xauth
         state: present
 
-    - name: Verify user exists
-      getent:
-        database: passwd
-        key: "{{ user_name }}"
+    - name: Verify AD user exists
+      command: id {{ user_name }}
+      register: user_info
+      changed_when: false
+
+    - name: Display user information
+      debug:
+        var: user_info.stdout
 
     - name: Create .vnc directory
       file:
         path: "/home/{{ user_name }}/.vnc"
         state: directory
         owner: "{{ user_name }}"
-        group: "{{ user_name }}"
-        mode: '0700'
+        mode: "0700"
 
     - name: Create VNC password file
       shell: |
         echo "{{ vnc_password }}" | vncpasswd -f > /home/{{ user_name }}/.vnc/passwd
+        chown {{ user_name }} /home/{{ user_name }}/.vnc/passwd
+        chmod 600 /home/{{ user_name }}/.vnc/passwd
       args:
         creates: "/home/{{ user_name }}/.vnc/passwd"
-
-    - name: Set VNC password file permissions
-      file:
-        path: "/home/{{ user_name }}/.vnc/passwd"
-        owner: "{{ user_name }}"
-        group: "{{ user_name }}"
-        mode: '0600'
 
     - name: Create xstartup file
       copy:
         dest: "/home/{{ user_name }}/.vnc/xstartup"
         owner: "{{ user_name }}"
-        group: "{{ user_name }}"
-        mode: '0700'
+        mode: "0755"
         content: |
           #!/bin/sh
 
@@ -86,16 +78,89 @@
 
           exec dbus-run-session /usr/bin/plasma_session
 
+    - name: Remove stale VNC lock file
+      file:
+        path: "/tmp/.X{{ vnc_display | regex_replace(':','') }}-lock"
+        state: absent
+
+    - name: Remove stale VNC socket
+      file:
+        path: "/tmp/.X11-unix/X{{ vnc_display | regex_replace(':','') }}"
+        state: absent
+
+    - name: Verify user context
+      shell: |
+        sudo -iu {{ user_name }} whoami
+      register: whoami_result
+      changed_when: false
+
+    - name: Show execution user
+      debug:
+        var: whoami_result.stdout
+
     - name: Kill existing VNC session
-      become_user: "{{ user_name }}"
-      command: "vncserver -kill {{ vnc_display }}"
-      ignore_errors: yes
+      shell: |
+        sudo -iu {{ user_name }} vncserver -kill {{ vnc_display }}
+      failed_when: false
+      changed_when: false
 
     - name: Start VNC session
-      become_user: "{{ user_name }}"
-      command: "vncserver {{ vnc_display }} -geometry 1920x1080 -depth 24"
+      shell: |
+        sudo -iu {{ user_name }} vncserver {{ vnc_display }} -geometry 1920x1080 -depth 24
       register: vnc_start
+      failed_when: false
 
-    - name: Display VNC startup result
+    - name: Display VNC start output
       debug:
         var: vnc_start.stdout_lines
+
+    - name: Display VNC start errors
+      debug:
+        var: vnc_start.stderr_lines
+
+    - name: Verify VNC session
+      shell: |
+        sudo -iu {{ user_name }} vncserver -list
+      register: vnc_list
+      changed_when: false
+      failed_when: false
+
+    - name: Show active VNC sessions
+      debug:
+        var: vnc_list.stdout_lines
+
+    - name: Check Xvnc process
+      shell: pgrep -af Xvnc
+      register: xvnc_process
+      changed_when: false
+      failed_when: false
+
+    - name: Display Xvnc processes
+      debug:
+        var: xvnc_process.stdout_lines
+
+    - name: Check VNC port
+      shell: |
+        ss -tulpn | grep 590{{ vnc_display | regex_replace(':','') }}
+      register: vnc_port
+      changed_when: false
+      failed_when: false
+
+    - name: Show VNC listener
+      shell: ss -tulpn | grep 5908 | sed 's/[[:space:]]\+/ /g'
+      register: vnc_port
+
+    - debug:
+        var: vnc_port.stdout_lines
+
+
+    - name: Show VNC logs
+      shell: |
+        tail -10 /home/{{ user_name }}/.vnc/*.log
+      register: vnc_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Display VNC logs
+      debug:
+        var: vnc_logs.stdout_lines
