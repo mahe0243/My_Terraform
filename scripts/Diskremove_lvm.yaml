@@ -1,0 +1,47 @@
+
+---
+- name: Simple LVM removal
+  hosts: all
+  become: yes
+  vars:
+    mount_point: /data01   # Change to your mount point
+
+  tasks:
+    - name: Unmount filesystem
+      ansible.posix.mount:
+        path: "{{ mount_point }}"
+        state: unmounted
+
+    - name: Remove fstab entry
+      ansible.posix.mount:
+        path: "{{ mount_point }}"
+        state: absent
+
+    - name: Get LV/VG/PV info from mount point
+      shell: |
+        dev=$(df --output=source {{ mount_point }} | tail -n 1)
+        lv_line=$(lvs --noheadings -o lv_path,lv_name,vg_name,devices | grep -E "$dev|${dev/mapper\//}" | head -n1)
+        echo "$lv_line"
+      register: lv_info
+
+    - name: Parse LV/VG/PV
+      set_fact:
+        lv_name: "{{ lv_info.stdout.split()[1] }}"
+        vg_name: "{{ lv_info.stdout.split()[2] }}"
+        pv_device: "{{ lv_info.stdout.split()[3].split('(')[0] }}"
+
+    - name: Remove logical volume
+      community.general.lvol:
+        vg: "{{ vg_name }}"
+        lv: "{{ lv_name }}"
+        state: absent
+        force: yes
+
+    - name: Remove volume group
+      community.general.lvg:
+        vg: "{{ vg_name }}"
+        state: absent
+        force: yes
+
+    - name: Wipe physical volume
+      command: pvremove -ff -y {{ pv_device }}
