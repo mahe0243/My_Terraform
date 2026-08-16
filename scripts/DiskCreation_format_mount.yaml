@@ -1,0 +1,64 @@
+- name: Setup new disk with LVM and mount
+  hosts: all
+  become: yes
+  tasks:
+    - name: Detect new disk (exclude root and cdrom)
+      shell: lsblk -dn -o NAME,SIZE | grep "1G" | awk '{print $1}'
+      register: detected_disk
+
+    - name: Set fact for new disk
+      set_fact:
+        new_disk: "/dev/{{ detected_disk.stdout_lines[0] }}"
+
+    - name: Install LVM tools
+      package:
+        name: lvm2
+        state: present
+
+    - name: Create physical volume
+      command: pvcreate {{ new_disk }}
+
+    - name: Create volume group vg_data
+      command: vgcreate vg_data {{ new_disk }}
+
+    - name: Create logical volume lv_data (use full disk)
+      command: lvcreate -n lv_data -l 100%FREE vg_data
+
+    - name: Format logical volume with XFS
+      filesystem:
+        fstype: xfs
+        dev: /dev/vg_data/lv_data
+
+    - name: Create mount point
+      file:
+        path: /data01
+        state: directory
+
+    - name: Mount logical volume
+      mount:
+        path: /data01
+        src: /dev/vg_data/lv_data
+        fstype: xfs
+        state: mounted
+
+    - name: Persist mount in fstab
+      mount:
+        path: /data01
+        src: /dev/vg_data/lv_data
+        fstype: xfs
+        opts: defaults
+        state: present
+
+    - name: Show block devices after setup
+      command: lsblk
+      register: lsblk_after
+
+    - debug:
+        var: lsblk_after.stdout_lines
+
+    - name: Show filesystem usage
+      command: df -h /data01
+      register: df_after
+
+    - debug:
+        var: df_after.stdout_lines
