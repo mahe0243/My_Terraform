@@ -1,0 +1,47 @@
+- name: Extend LVM with new disk(s)
+  hosts: all
+  become: yes
+  vars:
+    vg_name: vg_data
+    lv_name: lv_data
+    mount_point: /data01
+    disk_size: "1G"
+
+  tasks:
+    - name: Rescan SCSI bus to detect new disks
+      shell: for host in /sys/class/scsi_host/host*; do echo "- - -" > $host/scan; done
+
+    - name: Detect unused disks by size
+      shell: |
+        lsblk -dn -o NAME,SIZE | awk '$2=="{{ disk_size }}" {print $1}' | while read d; do
+          if ! pvs --noheadings -o pv_name | grep -qw "/dev/$d"; then
+            echo $d
+          fi
+        done
+      register: detected_disks
+
+    - name: Fail if no new disks found
+      fail:
+        msg: "No new {{ disk_size }} disk(s) detected after rescan."
+      when: detected_disks.stdout_lines | length == 0
+
+    - name: Create PVs on new disks
+      command: pvcreate /dev/{{ item }}
+      loop: "{{ detected_disks.stdout_lines }}"
+
+    - name: Extend VG with new disks
+      command: vgextend {{ vg_name }} /dev/{{ item }}
+      loop: "{{ detected_disks.stdout_lines }}"
+
+    - name: Extend LV to use all free space
+      command: lvextend -l +100%FREE /dev/{{ vg_name }}/{{ lv_name }}
+
+    - name: Grow XFS filesystem
+      command: xfs_growfs {{ mount_point }}
+
+    - name: Show filesystem usage after extension
+      command: df -h {{ mount_point }}
+      register: df_after
+
+    - debug:
+        var: df_after.stdout_lines
