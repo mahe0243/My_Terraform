@@ -1,0 +1,25 @@
+---
+- name: Add entry to fstab with backup
+  hosts: all
+  become: yes
+
+  vars:
+    fstab_entry: "ch3lst101:/files/Report  /Report rw,bg,hard,nointr,proto=tcp,vers=3,rsize=32768,wsize=32768      0   0"
+
+  tasks:
+    - name: Add entry to /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        line: "{{ fstab_entry }}"
+        state: present
+        backup: yes
+
+    - name: Validate Fstab_Entry
+      shell: grep -i "ch3lxcrmwsst101" /etc/fstab
+      register: fs_output
+      changed_when: false
+      failed_when: false
+
+    - name: Show fstab entry
+      debug:
+        msg: "{{ fs_output.stdout }}"
