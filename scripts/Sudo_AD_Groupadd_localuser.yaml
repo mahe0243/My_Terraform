@@ -1,0 +1,23 @@
+---
+- name: Create ppradmin user and configure sudoers
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Create ppradmin user
+      user:
+        name: ppradmin
+        state: present
+        create_home: true
+        shell: /bin/bash
+
+
+    - name: Add sudoers entries below SEC-Global-TABLEAUAdmins
+      lineinfile:
+        path: /etc/sudoers
+        insertafter: '^%SEC-Global-TABLEAUAdmins'
+        backup: yes
+        line: |
+          %SEC-DEV-UserReady ALL=(ALL) NOPASSWD: /bin/su - ppradmin
+          ppradmin ALL=(ALL) NOPASSWD: ALL
+        validate: '/usr/sbin/visudo -cf %s'
