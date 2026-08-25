@@ -1,0 +1,4 @@
+{
+  "instance_ids": ["i-0123456789abcdef0", "i-0fedcba9876543210"],
+  "instance_names": ["AppServer01", "DBServer02"]
+}
