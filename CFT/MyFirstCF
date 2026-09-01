@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template for K8 VPC, Security Group, and 2 public EC2 instances
+
+Resources:
+  CFVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: CFVPC
+
+  CFInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: CF-IGW
+
+  CFVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref CFVPC
+      InternetGatewayId: !Ref CFInternetGateway
+
+  CFPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CFVPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: CF-Public-Subnet
+
+  CFRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref CFVPC
+      Tags:
+        - Key: Name
+          Value: CF-RouteTable
+
+  CFRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref CFRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref CFInternetGateway
+
+  CFSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref CFPublicSubnet
+      RouteTableId: !Ref CFRouteTable
+
+  CFNginxSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP and SSH traffic
+      VpcId: !Ref CFVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: CF-Nginx-SG
+
+  CFInstance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-0c02fb55956c7d316   # Update with valid AMI for your region
+      SubnetId: !Ref CFPublicSubnet
+      SecurityGroupIds:
+        - !Ref CFNginxSG
+      KeyName: My_aws_new              # Replace with your key pair name
+      Tags:
+        - Key: Name
+          Value: CF-Master-1
+
+  CFInstance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-0c02fb55956c7d316   # Update with valid AMI for your region
+      SubnetId: !Ref CFPublicSubnet
+      SecurityGroupIds:
+        - !Ref CFNginxSG
+      KeyName: My_aws_new              # Replace with your key pair name
+      Tags:
+        - Key: Name
+          Value: CF-Master-2
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref CFVPC
+
+  SecurityGroupId:
+    Description: Security Group ID
+    Value: !Ref CFNginxSG
+
+  Instance1Id:
+    Description: First EC2 Instance ID
+    Value: !Ref CFInstance1
+
+  Instance1PublicIP:
+    Description: First EC2 Instance Public IP
+    Value: !GetAtt CFInstance1.PublicIp
+
+  Instance2Id:
+    Description: Second EC2 Instance ID
+    Value: !Ref CFInstance2
+
+  Instance2PublicIP:
+    Description: Second EC2 Instance Public IP
+    Value: !GetAtt CFInstance2.PublicIp
