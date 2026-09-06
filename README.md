@@ -19,10 +19,12 @@ python snapshot.py delete_snap
 
 *terraform apply -var-file=prod.tfvars
 
-Deploy qa:
+**Deploy QA:**
+
 terraform apply -var-file=qa.tfvars
 
-Deploy dev:
+**Deploy DEV:**
+
 terraform apply -var-file=qa.tfvars
 
 
