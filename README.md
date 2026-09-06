@@ -1,14 +1,14 @@
 #Snapshot#
-#Using instance IDs
+# Using instance IDs
 python snapshot.py create_snap --file instances.txt
 
-#Using Name tags
+# Using Name tags
 python snapshot.py create_snap --file instances.txt --use-names
 
-#List snapshots
+# List snapshots
 python snapshot.py list_snap
 
-#Delete snapshots
+# Delete snapshots
 python snapshot.py delete_snap
 
 
