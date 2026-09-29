@@ -86,21 +86,10 @@ resource "aws_key_pair" "k8_key" {
   public_key = file("~/.ssh/id_rsa.pub")
 }
 
-# Fetch latest Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux_2" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-kernel-5.10-hvm-*-x86_64-gp2"]
-  }
-}
-
-# EC2 Instance
+# EC2 Instance (using your AMI ID directly)
 resource "aws_instance" "nginx" {
-  ami                         = data.aws_ami.amazon_linux_2.id
-  instance_type               = "t2.micro"
+  ami                         = "ami-0e7ccba13ea56beac"   # <-- replace with your AMI ID
+  instance_type               = "t3.medium"
   subnet_id                   = aws_subnet.k8_public_subnet.id
   vpc_security_group_ids      = [aws_security_group.k8_nginx_sg.id]
   key_name                    = aws_key_pair.k8_key.key_name
