@@ -87,7 +87,7 @@ resource "aws_instance" "nginx" {
   instance_type               = "t3.medium"
   subnet_id                   = aws_subnet.k8_public_subnet.id
   vpc_security_group_ids      = [aws_security_group.k8_nginx_sg.id]
-  key_name                    = "My_new_key"
+  key_name                    = "My_aws_new"
   associate_public_ip_address = true
 
   user_data = <<-EOF
